@@ -1,91 +1,72 @@
 'use strict';
 
-const body = document.body;
 let leftClicked = false;
 let rightClicked = false;
 
-function addNotification(message, isError = false) {
-  document
-    .querySelectorAll('[data-qa="notification"]')
-    .forEach((notification) => notification.remove());
+function createNotification(type, message) {
+  const notification = document.createElement('div');
 
-  const div = document.createElement('div');
-
-  div.classList.add('notification', isError ? 'error' : 'success');
-  div.textContent = message;
-  div.setAttribute('data-qa', 'notification');
-  document.body.appendChild(div);
+  notification.textContent = message;
+  notification.classList.add(type);
+  notification.dataset.qa = 'notification';
+  document.body.appendChild(notification);
 }
 
 const firstPromise = new Promise((resolve, reject) => {
-  // eslint-disable-next-line no-shadow
-  const clickHandler = (event) => {
-    if (event.button === 0) {
-      event.stopPropagation();
-      // eslint-disable-next-line no-console
-      console.log('First promise resolved');
-      resolve('First promise was resolved');
-      body.removeEventListener('click', clickHandler);
-    }
-  };
-
-  body.addEventListener('click', clickHandler);
-
-  setTimeout(() => {
-    // eslint-disable-next-line no-console
-    console.log('First promise rejected');
+  const timeoutID = setTimeout(
     // eslint-disable-next-line prefer-promise-reject-errors
-    reject('First promise was rejected in 3 seconds');
-    body.removeEventListener('click', clickHandler);
-  }, 3000);
+    () => reject('First promise was rejected'),
+    3000,
+  );
+
+  document.addEventListener(
+    'click',
+    () => {
+      clearTimeout(timeoutID);
+      resolve('First promise was resolved');
+    },
+    { once: true },
+  );
 });
 
 const secondPromise = new Promise((resolve) => {
-  // eslint-disable-next-line no-shadow
-  const clickHandler = (event) => {
-    if (event.button === 0 || event.button === 2) {
-      // eslint-disable-next-line no-console
-      console.log('Second promise resolved');
-      resolve('Second promise was resolved');
-      body.removeEventListener('click', clickHandler);
-    }
-  };
+  document.addEventListener(
+    'click',
+    () => resolve('Second promise was resolved'),
+    { once: true },
+  );
 
-  body.addEventListener('click', clickHandler);
+  document.addEventListener(
+    'contextmenu',
+    (e) => {
+      e.preventDefault();
+      resolve('Second promise was resolved');
+    },
+    { once: true },
+  );
 });
 
 const thirdPromise = new Promise((resolve) => {
-  // eslint-disable-next-line no-shadow
-  const clickHandler = (event) => {
-    if (event.button === 0) {
-      leftClicked = true;
-      // eslint-disable-next-line no-console
-      console.log('Left click detected');
-    }
-
-    if (event.button === 2) {
-      rightClicked = true;
-      // eslint-disable-next-line no-console
-      console.log('Right click detected');
-    }
+  document.addEventListener('click', () => {
+    leftClicked = true;
 
     if (leftClicked && rightClicked) {
-      // eslint-disable-next-line no-console
-      console.log('Third promise resolved');
       resolve('Third promise was resolved');
-      body.removeEventListener('click', clickHandler);
     }
-  };
+  });
 
-  body.addEventListener('click', clickHandler);
+  document.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    rightClicked = true;
+
+    if (leftClicked && rightClicked) {
+      resolve('Third promise was resolved');
+    }
+  });
 });
 
 firstPromise
-  .then((message) => addNotification(message))
-  .catch((errorMessage) => addNotification(errorMessage, true));
-
-secondPromise.then((message) => {
-  setTimeout(() => addNotification(message), 100);
-});
-
-thirdPromise.then((message) => addNotification(message));
+  .then(createNotification.bind(null, 'success'))
+  .catch(createNotification.bind(null, 'error'));
+secondPromise.then(createNotification.bind(null, 'success'));
+thirdPromise.then(createNotification.bind(null, 'success'));
